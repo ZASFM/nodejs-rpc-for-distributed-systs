@@ -4,7 +4,7 @@ const app=express();
 const PORT=8000;
 
 const fakeCustomerResponse={
-   id:'123',
+   id:'1234',
    product:'product',
    price:000
 }
@@ -13,8 +13,18 @@ const fakeCustomerResponse={
 RPCObserver('PRODUCTS_RPC',fakeCustomerResponse);
 
 app.use(express.json());
-app.get('/product',(req,res)=>{
-   return res.json('Products service');
+app.get('/customer',async(req,res)=>{
+   const requestPayload={
+      customerId:'123'
+   }
+   try{
+      const responseData=await RPCRequest('CUSTOMER_RPC',requestPayload);
+      console.log(responseData);
+      res.status(200).json(responseData);
+   }catch(err){
+      console.log(err);
+      res.status(400).json(responseData);
+   }
 })
 app.get('/',()=>{
    return res.json('Products service');

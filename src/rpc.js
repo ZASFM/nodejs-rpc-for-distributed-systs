@@ -33,6 +33,7 @@ const RPCObserver = async (RPC_QUEUE_NAME, fakeResponse) => {
                correlation: msg.properties.correlationId
             }
          )
+         channel.ack(msg)
       }
    },
       {
@@ -41,39 +42,45 @@ const RPCObserver = async (RPC_QUEUE_NAME, fakeResponse) => {
    )
 }
 
-const requestData=async(queue_name,payload,id)=>{
-   const channel=getChannel();
+const requestData = async (queue_name, payload, id) => {
+   const channel = getChannel();
    //I want exclusivly this channel to recieve the incoming data:
-   const q=await channel.assertQueue('',{exclusive:false});
-   
+   const q = await channel.assertQueue('', { exclusive: false });
+
    //sending it to the queue name
-   channel.sentToQueue(queue_name,JSON.stringify(payload),{
-      replayTo:q.queue,
-      correlationId:id
+   channel.sentToQueue(queue_name, JSON.stringify(payload), {
+      replayTo: q.queue,
+      correlationId: id
    });
 
    //checking if we are able to reviebe the response
-   return new Promise((resolve,reject)=>{
+   return new Promise((resolve, reject) => {
+      //closing channel after 8 seconds:
+      const timeout = setTimeout(() => {
+         channel.close();
+      }, 8000)
       //we have already sent to request, now we are waiting for the response with .consume
-      channel.consume(q.queue,(msg)=>{
-         if(msg.correlationId===id){
+      channel.consume(q.queue, (msg) => {
+         if (msg.correlationId === id) {
             resolve(JSON.parse(msg.content.toString()));
-         }else{
+            //clearing timeout if im getting back a response
+            clearTimeout(timeout);
+         } else {
             reject('Message not found');
          }
-      },{
-         noAck:true
+      }, {
+         noAck: true
       })
    })
 }
 
 //send request to other services:
-const RPCRequest = async (RPC_QUEUE_NAME,payload) => { 
-   const uuid=uuid4()//correlationId, every request has a unique one
+const RPCRequest = async (RPC_QUEUE_NAME, payload) => {
+   const uuid = uuid4()//correlationId, every request has a unique one
    return requestData(RPC_QUEUE_NAME, payload, uuid)
 }
 
-module.exports={
+module.exports = {
    getChannel,
    RPCObserver,
    RPCRequest
